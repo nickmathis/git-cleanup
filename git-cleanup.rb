@@ -6,6 +6,10 @@ def current_branch
 end
 
 class GitCleanup
+  def initialize(force)
+    @force = force
+  end
+  
   def clean_all!
     if !on_master?
       puts "Must run against master"
@@ -88,30 +92,43 @@ class GitCleanup
   private
   def clean_branches!(branch_list, remote)
     branch_list.each do |branch|
-      invalid_response = true
-      while (invalid_response)
-        print "Remove #{branch}? [y/n] "
-        STDOUT.flush
-        response = gets.chomp.downcase
+      branch_name = branch
+      git_remote, branch_name = branch.split('/') if remote
       
-        branch_name = branch
-        git_remote, branch_name = branch.split('/') if remote
-
-        if response.match(/^[yn]$/)
-          invalid_response = false
-          if response == 'y'
-            command = remote ? "git push #{git_remote} :#{branch_name}" : "git branch -d #{branch_name}"
-            system "#{command}"
+      if @force
+        puts print "Removing #{branch}"
+        clean_branch(remote, git_remote, branch_name)
+      else
+        invalid_response = true
+        while (invalid_response)
+          print "Remove #{branch}? [y/n] "
+          STDOUT.flush
+          response = gets.chomp.downcase
+      
+          if response.match(/^[yn]$/)
+            invalid_response = false
+            if response == 'y'
+              clean_branch(remote, git_remote, branch_name)
+            else
+              puts "skipping #{branch_name}"
+            end
           else
-            puts "skipping #{branch_name}"
+            puts "Please enter y or n"
           end
-        else
-          puts "Please enter y or n"
         end
       end
     end
   end
+  
+  def clean_branch(remote, git_remote, branch_name)
+    command = remote ? "git push #{git_remote} :#{branch_name}" : "git branch -d #{branch_name}"
+    system "#{command}"
+  end
 end
 
-gc = GitCleanup.new
+force = false
+ARGV.each do|a|
+  force = true if a == "--force"
+end
+gc = GitCleanup.new(force)
 gc.clean_all!
