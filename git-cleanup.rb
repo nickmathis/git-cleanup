@@ -73,11 +73,11 @@ class GitCleanup
   end
   
   def never_remove_local
-    @never_remove_local ||= ['master', 'staging', 'production'] << current_branch
+    @never_remove_local ||= ['master', 'staging', 'production', 'preproduction'] << current_branch
   end
   
   def never_remove_remote
-    @never_remove_remote ||= ['master', 'staging', 'production'] << current_branch
+    @never_remove_remote ||= ['master', 'staging', 'production', 'preproduction'] << current_branch
   end
   
   def prune_branches!
