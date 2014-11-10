@@ -6,28 +6,40 @@ def current_branch
 end
 
 class GitCleanup
-  def initialize(force)
-    @force = force
+  def initialize(mode = nil)
+    @force  = false
+    @dry = false
+
+    case mode
+      when 'force'
+        @force = true
+      when 'dry'
+        @dry = true
+    end
   end
-  
+
   def clean_all!
     if !on_master?
       puts "Must run against master"
       return
     end
-    
+
     fetch
-    prune_branches!
-    merged_branches
-    clean_local!
-    clean_remote!
+    if @dry
+      merged_branches(true)
+    else
+      prune_branches!
+      merged_branches
+      clean_local!
+      clean_remote!
+    end
   end
-  
+
   def fetch
     `git fetch`
   end
-  
-  def merged_branches
+
+  def merged_branches(output = false)
     puts "\n********************************************\nBranches already merged into #{current_branch}\n********************************************"
     @local_branches = []
     @remote_branches = []
@@ -44,42 +56,43 @@ class GitCleanup
       else
         next if never_remove_local.include?(branch)
         @local_branches << branch
+        puts "-   #{branch}" if output
       end
     end
   end
-  
+
   def on_master?
     current_branch == 'master'
   end
-  
+
   def clean_remote!
     if !on_master?
       puts "Must run against master"
       return
     end
-    
+
     puts "#{@remote_branches.size} remote branches ready for cleanup"
     clean_branches!(@remote_branches, true)
   end
-  
+
   def clean_local!
     if !on_master?
       puts "Must run against master"
       return
     end
-    
+
     puts "#{@local_branches.size} local branches ready for cleanup"
     clean_branches!(@local_branches, false)
   end
-  
+
   def never_remove_local
     @never_remove_local ||= ['master', 'staging', 'production', 'preproduction'] << current_branch
   end
-  
+
   def never_remove_remote
     @never_remove_remote ||= ['master', 'staging', 'production', 'preproduction'] << current_branch
   end
-  
+
   def prune_branches!
     `git remote`.split("\n").each do |remote|
       print "Pruning remote #{remote}..."
@@ -88,13 +101,13 @@ class GitCleanup
       puts " done!"
     end
   end
-  
+
   private
   def clean_branches!(branch_list, remote)
     branch_list.each do |branch|
       branch_name = branch
       git_remote, branch_name = branch.split('/') if remote
-      
+
       if @force
         puts print "Removing #{branch}"
         clean_branch(remote, git_remote, branch_name)
@@ -104,7 +117,7 @@ class GitCleanup
           print "Remove #{branch}? [y/n] "
           STDOUT.flush
           response = gets.chomp.downcase
-      
+
           if response.match(/^[yn]$/)
             invalid_response = false
             if response == 'y'
@@ -119,16 +132,18 @@ class GitCleanup
       end
     end
   end
-  
+
   def clean_branch(remote, git_remote, branch_name)
     command = remote ? "git push #{git_remote} :#{branch_name}" : "git branch -d #{branch_name}"
     system "#{command}"
   end
 end
 
-force = false
+mode = nil
 ARGV.each do|a|
-  force = true if a == "--force"
+  mode = 'force' if a == "--force"
+  mode = 'dry'   if a == "--dry"
 end
-gc = GitCleanup.new(force)
+
+gc = GitCleanup.new(mode)
 gc.clean_all!
