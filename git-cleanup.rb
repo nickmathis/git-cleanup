@@ -93,6 +93,10 @@ class GitCleanup
     @never_remove_remote ||= ['master', 'staging', 'production', 'preproduction','training'] << current_branch
   end
 
+  def managed_remotes
+    ['origin']
+  end
+
   def prune_branches!
     `git remote`.split("\n").each do |remote|
       print "Pruning remote #{remote}..."
@@ -107,6 +111,10 @@ class GitCleanup
     branch_list.each do |branch|
       branch_name = branch
       git_remote, branch_name = branch.split('/') if remote
+      if git_remote && !managed_remotes.include?(git_remote)
+        puts "Skipping #{git_remote}/#{branch_name} (reason: remote not managed)"
+        next
+      end
 
       if @force
         puts print "Removing #{branch}"
