@@ -7,14 +7,14 @@ end
 
 class GitCleanup
   def initialize(mode = nil)
-    @force  = false
+    @force = :none
     @dry = false
 
     case mode
-      when 'force'
-        @force = true
-      when 'dry'
-        @dry = true
+    when 'force' then @force = :all
+    when 'force-local' then @force = :local
+    when 'force-remote' then @force = :remote
+    when 'dry' then @dry = true
     end
   end
 
@@ -37,6 +37,22 @@ class GitCleanup
 
   def fetch
     `git fetch`
+  end
+
+  # Gets a value indicating whether or not to force cleanup of local branches.
+  # @return [Boolean] A value indicating whether or not to force cleanup of local branches.
+  def force_local?
+    [:all, :local].include?(@force).tap do |force|
+      puts "\n!!! Local branches forced" if force
+    end
+  end
+
+  # Gets a value indicating whether or not to force cleanup of remote branches.
+  # @return [Boolean] A value indicating whether or not to force cleanup of remote branches.
+  def force_remote?
+    [:all, :remote].include?(@force).tap do |force|
+      puts "\n!!! Remote branches forced" if force
+    end
   end
 
   def merged_branches(output = false)
@@ -107,6 +123,7 @@ class GitCleanup
   end
 
   private
+
   def clean_branches!(branch_list, remote)
     branch_list.each do |branch|
       branch_name = branch
@@ -116,7 +133,9 @@ class GitCleanup
         next
       end
 
-      if @force
+      should_force = remote ? force_remote? : force_local?
+
+      if should_force
         puts print "Removing #{branch}"
         clean_branch(remote, git_remote, branch_name)
       else
@@ -148,9 +167,11 @@ class GitCleanup
 end
 
 mode = nil
-ARGV.each do|a|
-  mode = 'force' if a == "--force"
-  mode = 'dry'   if a == "--dry"
+ARGV.each do |a|
+  mode = 'force' if a == '--force'
+  mode = 'force-local' if a == '--force-local'
+  mode = 'force-remote' if a == '--force-remote'
+  mode = 'dry' if a == '--dry'
 end
 
 gc = GitCleanup.new(mode)
